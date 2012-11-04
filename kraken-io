@@ -1,0 +1,46 @@
+#!/usr/bin/env ruby
+
+require 'rubygems'
+require 'json'
+require 'net/https'
+require 'net/http/post/multipart'
+require 'open-uri'
+  
+param = ARGV[0] || ''
+
+Dir[ param + "*.jpg", param + "*.png"].each do |mainfile| 
+
+  url = URI.parse("https://api.kraken.io/file")
+  uploadfile = {:name => Dir.pwd + '/' + mainfile}
+
+  auth = {
+    "user" => "",
+    "pass" => "",
+    "apikey" => ""
+  }.to_json
+    
+  File.open(uploadfile[:name]) do |file|
+
+    req = Net::HTTP::Post::Multipart.new url.path,
+      "auth" => auth,
+      "file" => UploadIO.new(file, 'logotyp.png')
+    
+    https = Net::HTTP.new(url.host, url.port)
+    https.use_ssl = true
+    
+    res = https.start() {|conn| conn.request(req)}
+    response = JSON.parse(res.body)
+    
+    if response['success']
+      puts 'Success. Optimized image URL: ' + response['krakedURL']
+
+      # download and rewrite file
+      open(mainfile, 'wb') do |file|
+        file << open( response['krakedURL'] ).read
+      end
+
+    else
+      puts 'Fail. Error message: ' + response['error']
+    end
+  end
+end
